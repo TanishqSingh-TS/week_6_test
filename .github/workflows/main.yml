@@ -56,22 +56,21 @@ jobs:
         run: |
         # 1. Define the full registry path/tag
         # The tag includes the unique GitHub SHA to ensure immutability and trackability.
-        FULL_IMAGE_TAG="${{ env.AR_REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.AR_REPOSITORY }}/${{ env.IMAGE_NAME }}:${{ github.sha }}"
-        LATEST_TAG="${{ env.AR_REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.AR_REPOSITORY }}/${{ env.IMAGE_NAME }}:latest"
+             FULL_IMAGE_TAG="${{ env.AR_REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.AR_REPOSITORY }}/${{ env.IMAGE_NAME }}:${{ github.sha }}"LATEST_TAG="${{ env.AR_REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.AR_REPOSITORY }}/${{ env.IMAGE_NAME }}:latest"
         
-        echo "Building image tagged: ${FULL_IMAGE_TAG}"
+             echo "Building image tagged: ${FULL_IMAGE_TAG}"
         
         # 2. Build the image, applying two tags (latest and SHA)
         # Assumes your Dockerfile is in the repository root (context: .)
-        docker build -t ${FULL_IMAGE_TAG} -t ${LATEST_TAG} .
+             docker build -t ${FULL_IMAGE_TAG} -t ${LATEST_TAG} .
         
         # 3. Push both tags to Artifact Registry
-        echo "Pushing images to Artifact Registry..."
-        docker push ${FULL_IMAGE_TAG}
-        docker push ${LATEST_TAG}
+             echo "Pushing images to Artifact Registry..."
+             docker push ${FULL_IMAGE_TAG}
+             docker push ${LATEST_TAG}
         
         # Output the full tag for use in later deployment steps (if you continue)
-        echo "image-tag=${FULL_IMAGE_TAG}" >> $GITHUB_OUTPUT
+             echo "image-tag=${FULL_IMAGE_TAG}" >> $GITHUB_OUTPUT
 
 
         env:
