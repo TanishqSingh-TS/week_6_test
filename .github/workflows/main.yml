@@ -12,6 +12,11 @@ permissions:
     contents: write
     pull-requests: write
 
+env:
+  PROJECT_ID: keen-phalanx-473718-p1
+  AR_REGION: us-central1              
+  AR_REPOSITORY: mlops-mlflow               
+  IMAGE_NAME: fastapi-backend                   
 jobs:
   test-and-validate:
     runs-on: ubuntu-latest
@@ -28,12 +33,8 @@ jobs:
       - name: Setup CML (Continuous Machine Learning)
         uses: iterative/setup-cml@v2.0.1
         
-
-      - name: Install dependencies
-        run: |
-          python -m pip install --upgrade pip
-          pip install scikit-learn pandas numpy pytest joblib matplotlib dvc dvc-gs mlflow tabulate
-          pip install dvc[gcs]
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
         
       - name: Google Cloud Authentication
         id: 'auth'
@@ -44,42 +45,34 @@ jobs:
       - name: Pulling Data using DVC
         run: |
           dvc pull
-      
-      - name: Training Model
-        run: |
-          python3 model_train.py
 
-      - name: Load Model from mlflow
+      - name: Configure Docker for Artifact Registry
+      # This command uses the gcloud credentials to authorize Docker access.
         run: |
-          python3 fetch_model.py
-
-      - name: Run Tests
-        run: |
-          pytest -v &> output.txt 
-
-      
-      - name: Create cml report
-        run: |
-          # --- 1. Create the base report content ---
-          echo "# CML Test & Evaluation Report" > report.md
-          
-          # --- 2. Section 1: Pytest Results ---
-          echo "## Pytest Sanity Check" >> report.md
-          # Check if output.txt exists before trying to cat it
-          if [ -f output.txt ]; then
-            echo "\`\`\`" >> report.md
-            cat output.txt >> report.md
-            echo "\`\`\`" >> report.md
-          else
-            echo "Pytest output file (output.txt) not found." >> report.md
-          fi
-          
-          ## Section 2: Evaluation Metrics Table
-          cat metrics.md >> report.md
-          
-          # Post the entire report.md content as a comment
-          cml comment create report.md
+          gcloud auth configure-docker ${{ env.AR_REGION }}-docker.pkg.dev
         
+      - name: Build and Push Docker Image to Artifact Registry
+        id: docker-build-push
+        run: |
+        # 1. Define the full registry path/tag
+        # The tag includes the unique GitHub SHA to ensure immutability and trackability.
+        FULL_IMAGE_TAG="${{ env.AR_REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.AR_REPOSITORY }}/${{ env.IMAGE_NAME }}:${{ github.sha }}"
+        LATEST_TAG="${{ env.AR_REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.AR_REPOSITORY }}/${{ env.IMAGE_NAME }}:latest"
         
+        echo "Building image tagged: ${FULL_IMAGE_TAG}"
+        
+        # 2. Build the image, applying two tags (latest and SHA)
+        # Assumes your Dockerfile is in the repository root (context: .)
+        docker build -t ${FULL_IMAGE_TAG} -t ${LATEST_TAG} .
+        
+        # 3. Push both tags to Artifact Registry
+        echo "Pushing images to Artifact Registry..."
+        docker push ${FULL_IMAGE_TAG}
+        docker push ${LATEST_TAG}
+        
+        # Output the full tag for use in later deployment steps (if you continue)
+        echo "image-tag=${FULL_IMAGE_TAG}" >> $GITHUB_OUTPUT
+
+
         env:
           REPO_TOKEN: ${{ secrets.GITHUB_TOKEN }}
