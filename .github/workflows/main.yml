@@ -20,7 +20,7 @@ env:
   # --- GKE Deployment Configuration ---
   GKE_CLUSTER: fastapi-ci-cluster
   GKE_ZONE: us-central1-a
-  DEPLOYMENT_NAME: fastapi-min-deployment
+  DEPLOYMENT_NAME: fastapi-backend
   MANIFEST_PATH: k8s/deployment.yaml # Path to your existing deployment file
   
 jobs:
@@ -84,6 +84,8 @@ jobs:
         uses: 'google-github-actions/auth@v2'
         with:
           credentials_json: ${{ secrets.GCP_SA }}
+      - name: DVC PULL
+        run: dvc pull
 
       - name: Configure Docker for Artifact Registry
         # Authenticates the Docker CLI to push to GCP AR
@@ -109,7 +111,7 @@ jobs:
       - name: Wait for 2 Minutes (Pre-Deployment Pause)
         run: |
           echo "Waiting 120 seconds for GKE API server stability..."
-          sleep 120
+          sleep 60
 
       - name: Apply Kubernetes Manifest (Direct Apply)
         # Assumes the existing manifest file (k8s/deployment.yaml) is configured to use the :latest tag
@@ -118,6 +120,10 @@ jobs:
           
           echo "Applying deployment from ${MANIFEST_PATH}..."
           kubectl apply -f ${MANIFEST_PATH}
+      - name: Wait for 2 Minutes (Pre-Deployment Pause)
+        run: |
+          echo "Waiting 120 seconds for GKE API server stability..."
+          sleep 60
 
       # -----------------------------------------------------
       # STATUS AND ROLLOUT CHECK
@@ -128,10 +134,15 @@ jobs:
           # This command blocks until Pods are ready (checking the image tag update)
           kubectl rollout status deployment/${{ env.DEPLOYMENT_NAME }} --timeout=5m
           echo "Deployment successful!"
+          
+      - name: Wait for 2 Minutes (Pre-Deployment Pause)
+        run: |
+          echo "Waiting 120 seconds for GKE API server stability..."
+          sleep 120
 
       - name: Show Service Status
         run: |
           echo "Service Status (External IP):"
           kubectl get service ${{ env.DEPLOYMENT_NAME }}-service
           kubectl get nodes -o wide
-          kubectl port-forward svc/fastapi-backend-service 8000:8000
+          kubectl port-forward deployment/fastapi-backend 8000:8000
